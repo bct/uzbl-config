@@ -93,7 +93,6 @@ function get_cookie () {
   echo 'get_cookie' >> $HOME/cookie.log
 	path_esc=${path//\//\\/}
 
-  hostpattern='echo $host | sed 's/'
 	cookie=`grep "/^[^\t]*$host\t[^\t]*\t$path_esc/" $cookie_file | tail -n 1 | cut -f 3,6-`
 
 	if [ -z "$cookie" ]

@@ -12,16 +12,16 @@ COOKIES_TXT = ENV['XDG_DATA_HOME'] + '/uzbl/cookies.txt'
 File.makedirs(ENV['XDG_DATA_HOME'] + '/uzbl')
 
 def PUT url, host, path, k, v, c_path, c_domain
-  `#{SCRIPT} ~/.config/uzbl/config 25704 27263009 '' /tmp/uzbl_socket_27263009 #{url} title PUT #{host} #{path} '#{k}=#{v}; expires=Tue, 03-Jun-2008 02:21:32 GMT; path=#{c_path}; domain=#{c_domain}'`
+  system "#{SCRIPT} ~/.config/uzbl/config 25704 27263009 '' /tmp/uzbl_socket_27263009 #{url} title PUT #{host} #{path} '#{k}=#{v}; expires=Tue, 03-Jun-2008 02:21:32 GMT; path=#{c_path}; domain=#{c_domain}'"
 end
 
 def GET url, host, path
-  `#{SCRIPT} ~/.config/uzbl/config 25704 27263009 '' /tmp/uzbl_socket_27263009 #{url} title GET #{host} #{path}`
+  `#{SCRIPT} ~/.config/uzbl/config 25704 27263009 '' /tmp/uzbl_socket_27263009 #{url} title GET #{host} #{path}`.chomp
 end
 
 def last_line(file)
   ll = nil
-  File.open(file) { |f| while tmp = f.gets; ll = tmp; end }
+  open(file) { |f| while tmp = f.gets; ll = tmp; end }
   ll.chomp
 end
 
@@ -33,7 +33,7 @@ end
 
 # test PUT 1: simple PUT
 
-File.delete(COOKIES_TXT)
+File.delete(COOKIES_TXT) rescue nil
 
 PUT('http://www.uzbl.org/', 'www.uzbl.org', '/wiki/_media/uzbl_webinspector.png',
    'key', 'value', '/wiki/', 'www.uzbl.org')
@@ -43,7 +43,7 @@ assert_equal last_line(COOKIES_TXT),
 
 # test PUT 2: PUT with parent domain should use given domain
 
-File.delete(COOKIES_TXT)
+File.delete(COOKIES_TXT) rescue nil
 
 PUT('http://www.uzbl.org/', 'www.uzbl.org', '/wiki/_media/uzbl_webinspector.png',
    'key', 'value', '/wiki/', '.uzbl.org')
@@ -53,7 +53,7 @@ assert_equal last_line(COOKIES_TXT),
 
 # test PUT 3: PUT with non-parent domain should not use given domain
 
-File.delete(COOKIES_TXT)
+File.delete(COOKIES_TXT) rescue nil
 
 PUT('http://www.uzbl.org/', 'www.uzbl.org', '/wiki/_media/uzbl_webinspector.png',
    'key', 'value', '/wiki/', '.notuzbl.example')
@@ -61,9 +61,19 @@ PUT('http://www.uzbl.org/', 'www.uzbl.org', '/wiki/_media/uzbl_webinspector.png'
 assert_equal last_line(COOKIES_TXT),
   "www.uzbl.org\tFALSE\t/wiki/\tFALSE\t1212459692\tkey\tvalue"
 
+# test PUT 3: PUT with domain monkey business (consecutive/trailing dots)
+
+File.delete(COOKIES_TXT) rescue nil
+
+PUT('http://www.uzbl.org/', 'www.uzbl.org', '/wiki/_media/uzbl_webinspector.png',
+   'key', 'value', '/wiki/', '..com.')
+
+assert_equal last_line(COOKIES_TXT),
+  "www.uzbl.org\tFALSE\t/wiki/\tFALSE\t1212459692\tkey\tvalue"
+
 # test GET 1: simple get
 
-File.open(COOKIES_TXT, 'w') do |f|
+open(COOKIES_TXT, 'w') do |f|
   f.write <<END
 uzbl.org\tFALSE\t/wiki/\tFALSE\t1212459692\tkey\tvalue
 uzbl.org\tFALSE\t/wiki/_media/\tFALSE\t1212459692\tkey2\tvalue2

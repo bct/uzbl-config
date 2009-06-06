@@ -99,7 +99,7 @@ if $0 == __FILE__
     crumbs = cookie.split(';').map { |p| p.strip.split('=', 2) }
     key,value = crumbs.first
 
-    exp = nil
+    exp = 'session'
     domain = host
 
     crumbs[1..-1].each do |k,v|

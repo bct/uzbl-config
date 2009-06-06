@@ -71,6 +71,22 @@ PUT('http://www.uzbl.org/', 'www.uzbl.org', '/wiki/_media/uzbl_webinspector.png'
 assert_equal last_line(COOKIES_TXT),
   "www.uzbl.org\tFALSE\t/wiki/\tFALSE\t1212459692\tkey\tvalue"
 
+# test PUT 4: PUT replacing old cookie
+
+open(COOKIES_TXT, 'w') do |f|
+  f.write <<END
+example.org\tFALSE\t/\tFALSE\t1212459692\tkey\tvalue
+uzbl.org\tFALSE\t/wiki/\tFALSE\t1212459692\tkey\tvalue
+END
+end
+
+PUT('http://www.uzbl.org/', 'www.uzbl.org', '/wiki/_media/uzbl_webinspector.png',
+   'key', 'updated', '/wiki/', '.uzbl.org.')
+
+assert_equal 2, File.readlines(COOKIES_TXT).length
+assert_equal last_line(COOKIES_TXT),
+  "uzbl.org\tFALSE\t/wiki/\tFALSE\t1212459692\tkey\tupdated"
+
 # test GET 1: simple get
 
 open(COOKIES_TXT, 'w') do |f|

@@ -81,7 +81,7 @@ END
 end
 
 PUT('http://www.uzbl.org/', 'www.uzbl.org', '/wiki/_media/uzbl_webinspector.png',
-   'key', 'updated', '/wiki/', '.uzbl.org.')
+   'key', 'updated', '/wiki/', '.uzbl.org')
 
 assert_equal 2, File.readlines(COOKIES_TXT).length
 assert_equal last_line(COOKIES_TXT),

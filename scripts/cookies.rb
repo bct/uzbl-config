@@ -55,8 +55,35 @@ def get_cookies(cookie_file, host, path)
 end
 
 def put_cookie(cookie_file, domain, read_other, path, secure, exp, key, value)
-  open(cookie_file, 'a') do |f|
-    f.puts "#{domain}\tFALSE\t#{path}\tFALSE\t#{exp}\t#{key}\t#{value}"
+  if File.exists? cookie_file
+    cookies = File.readlines(cookie_file)
+  else
+    cookies = []
+  end
+
+  newcookie = "#{domain}\tFALSE\t#{path}\tFALSE\t#{exp}\t#{key}\t#{value}"
+  done = false
+
+  open(cookie_file, 'w') do |f|
+    cookies.each do |line|
+      fields = line.chomp.split "\t"
+      l_host, l_path, l_key = fields[0], fields[2], fields[5]
+
+      if not done and l_host == domain and l_path == path and l_key == key
+        # this is the line, replace the existing cookie
+        f.puts newcookie
+        done = true
+      else
+        # this is not the line, or we already wrote a line
+        # just copy the existing line out
+        f.puts line
+      end
+    end
+
+    if not done
+      # it must be a new cookie, add it to the end of the file
+      f.puts newcookie
+    end
   end
 end
 
@@ -89,7 +116,7 @@ if $0 == __FILE__
         # count the number of .s that aren't at the end of the domain
         num_dots = v.gsub(/\.$/, '').gsub(/[^\.]/, '').length
 
-        if num_dots > 1 and host.match /#{v}$/
+        if num_dots > 1 and host.match /#{Regexp.escape(v)}$/
           # the given domain is a suffix of our real domain and it has more
           # than one . so they didn't try to use e.g. .com. Nothing looks
           # funny here, let's use it (but strip the leading . first)!

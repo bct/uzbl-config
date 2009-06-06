@@ -7,7 +7,7 @@
 # i would have preferred to stick with bash but it is a Bad Language.
 
 # this expands to ~/.local/share/uzbl/cookies.txt where XDH is set,
-# and breaks everywhere else. you might also have to create the directory.
+# (and breaks everywhere else). you might also have to create the directory.
 $cookie_file = ENV['XDG_DATA_HOME'] + '/uzbl/cookies.txt'
 
 # Note. in uzbl there is no strict definition on what a session is.  it's
@@ -23,11 +23,9 @@ $cookie_file = ENV['XDG_DATA_HOME'] + '/uzbl/cookies.txt'
 # TODO:
 # - check expires= before sending.
 # - write sample script that cleans up cookies dir based on expires attribute.
-# - check uri against domain attribute. and path also.
 # - implement secure attribute.
 # - support blocking or not for 3rd parties
 # - http://kb.mozillazine.org/Cookies.txt
-# - don't always append cookies, sometimes we need to overwrite
 
 COOKIES_TXT = ENV['XDG_DATA_HOME'] + '/uzbl/cookies.txt'
 

@@ -89,9 +89,9 @@ if $0 == __FILE__
   require 'time'
 
   action = ARGV[7]
-  host = ARGV[8]
-  path = ARGV[9]
-  cookie = ARGV[10]
+  host = ARGV[9]
+  path = ARGV[10]
+  cookie = ARGV[11]
 
   if action == 'PUT'
     crumbs = cookie.split(';').map { |p| p.strip.split('=', 2) }

@@ -13,7 +13,7 @@ set shell_cmd         = sh -c
 # Behaviour and appearance
 set show_status       = 1
 set status_background = #303030
-set status_format     = <span font_family="monospace"><span background="khaki" foreground="black">[\@[\@MODE]\@]</span> [<span weight="bold" foreground="red">\@[\@keycmd]\@</span>] <span foreground="#606060">\@[\@LOAD_PROGRESSBAR]\@</span> <span foreground="#99FF66">\@[\@uri]\@</span> <span foreground="khaki">\@[\@NAME]\@</span> <span foreground="orange">\@status_message</span> <span foreground="#606060">\@[\@SELECTED_URI]\@</span></span>
+set status_format     = <span font_family="monospace"><span background="khaki" foreground="black">\@MODE</span> [<span weight="bold" foreground="red">\@[\@keycmd]\@</span>] <span foreground="#606060">\@[\@LOAD_PROGRESSBAR]\@</span> <span foreground="#99FF66">\@[\@uri]\@</span> <span foreground="khaki">\@[\@NAME]\@</span> <span foreground="orange">\@status_message</span> <span foreground="#606060">\@[\@SELECTED_URI]\@</span></span>
 set status_top = 0
 
 set title_format_short = \@TITLE - Uzbl browser <\@NAME>
@@ -24,6 +24,9 @@ set status_pbar_done  = X
 set status_pbar_pending = +
 set status_pbar_width = 12
 
+set insert_indicator = [X]
+set command_indicator = 
+
 set modkey = Mod1
 
 # reset to command mode when new page is loaded
@@ -31,7 +34,7 @@ set reset_command_mode = 1
 set proxy_url   = http://127.0.0.1:8118
 
 # values 0-3
-set  http_debug      = 0
+set  http_debug      = 1
 
 set  useragent       = Uzbl (Webkit @WEBKIT_MAJOR.@WEBKIT_MINOR.@WEBKIT_MICRO)
 #set  max_conns	      = 0
@@ -84,7 +87,7 @@ bind    P     = sh "/home/bct/projects/uzbl/uzbl -u `xclip -selection primary -o
 
 bind    T     = spawn /home/bct/projects/uzbl/uzbl
 
-bind    O     = sh 'echo "keycmd o$6" > "$4"'
+bind    O     = set keycmd = o@uri
 
 bind ]] = script /home/bct/projects/uzbl-config/scripts/follow_next.js
 bind [[ = script /home/bct/projects/uzbl-config/scripts/follow_prev.js
@@ -94,23 +97,15 @@ bind gu = js window.location = document.location.toString().split(/\//).slice(0,
 bind quit = spawn /home/bct/projects/uzbl-config/scripts/session.sh endsession
 bind LOAD = spawn /home/bct/projects/uzbl-config/scripts/session.sh launch
 
-# examples:
-bind    S         = js alert("hi");
-# example showing how to use sh
-# it sends a command to the fifo, whose path is told via a positional param
-# if fifo_dir is not set, it'll echo to a file named (null) somewhere >:) remember to delete it
-# Parameters are separated by spaces and the script body must be one parameter, so enclose it in
-# quotes and escape any inner quotes using backslashes
-bind    XS        = sh 'echo "js alert (\'This is sent by the shell via a fifo\')" > "$4"'
+bind !reload = sh 'cat $1 > $4'
 
-# "home" page if you will
 set uri = http://necronomicorp.com/bct
 
 # n3on's linkfollower
 bind :follow * = js UzblHints.follow("%s");
 bind f = keycmd :follow 
 
-set load_start_handler = set status_message = <span foreground="khaki">wait</span>
-set load_commit_handler = chain 'set status_message = <span foreground="green">recv</span>' 'script /home/bct/projects/uzbl-config/scripts/n3on-follow.js'
+set load_start_handler = set status_message = <span foreground="khaki">\@uri wait</span>
+set load_commit_handler = chain 'set status_message = <span foreground="green">\@uri recv</span>' 'script /home/bct/projects/uzbl-config/scripts/n3on-follow.js'
 set load_finish_handler = set status_message = <span foreground="gold">done</span>
 

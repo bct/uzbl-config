@@ -8,13 +8,16 @@
 
 # this expands to ~/.local/share/uzbl/cookies.txt where XDH is set,
 # (and breaks everywhere else). you might also have to create the directory.
-$cookie_file = ENV['XDG_DATA_HOME'] + '/uzbl/cookies.txt'
+COOKIES_TXT = ENV['XDG_DATA_HOME'] + '/uzbl/cookies.txt'
+
+# if this is 'true' then when you visit http://example.org/ cookies will be
+# sent when uzbl requests http://advertising.example/image.jpg that was
+# embedded on that page
+SEND_THIRD_PARTY_COOKIES = false
 
 # Note. in uzbl there is no strict definition on what a session is.  it's
 # YOUR job to clear cookies marked as end_session if you want to keep cookies
 # only valid during a "session"
-
-# TODO: different cookie paths per config (eg per group of uzbl instances)
 
 # references:
 # - http://curl.haxx.se/rfc/cookie_spec.html
@@ -24,10 +27,9 @@ $cookie_file = ENV['XDG_DATA_HOME'] + '/uzbl/cookies.txt'
 # - check expires= before sending.
 # - write sample script that cleans up cookies dir based on expires attribute.
 # - implement secure attribute.
-# - support blocking or not for 3rd parties
 # - http://kb.mozillazine.org/Cookies.txt
-
-COOKIES_TXT = ENV['XDG_DATA_HOME'] + '/uzbl/cookies.txt'
+# - figure out how to handle cross-domain cookies and third party cookies in
+#   really big url spaces like .co.uk
 
 def get_cookies(cookie_file, host, path)
   pairs = []
@@ -87,11 +89,25 @@ end
 
 if $0 == __FILE__
   require 'time'
+  require 'uri'
 
+  req_host = URI.parse(URI.escape(ARGV[5])).host
   action = ARGV[7]
   host = ARGV[9]
   path = ARGV[10]
   cookie = ARGV[11]
+
+=begin
+  unless SEND_THIRD_PARTY_COOKIES or
+    $stderr.puts req_host.inspect
+    $stderr.puts host.inspect
+    (req_host.split('.')[-2,2] == host.split('.')[-2,2])
+    File.open('/home/bct/cookies-debug.txt', 'a') do |f|
+      f.puts "exiting " + req_host.split('.')[-2,2].inspect + " " + host.split('.')[-2,2].inspect
+    end
+    exit
+  end
+=end
 
   if action == 'PUT'
     crumbs = cookie.split(';').map { |p| p.strip.split('=', 2) }

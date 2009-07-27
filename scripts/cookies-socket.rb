@@ -4,7 +4,10 @@
 # (and breaks everywhere else). you might also have to create the directory.
 COOKIES_TXT = ENV['XDG_DATA_HOME'] + '/uzbl/cookies.txt'
 
+SOCKET_PATH = "/tmp/uzbl-cookie-socket"
+
 require 'set'
+require 'time'
 
 class CookieThingy
   def initialize cookies_txt
@@ -14,58 +17,100 @@ class CookieThingy
     load_file cookies_txt
   end
 
+  def add_cookie host, path, key, value
+    @hosts                        << host
+    @host_paths[host]             ||= {}
+    @host_paths[host][path]       ||= {}
+    @host_paths[host][path][key]  = value
+  end
+
   def load_file cookies_txt
     open(cookies_txt, 'r') do |f|
       f.each do |line|
         fields = line.chomp.split "\t"
         f_host, f_path, key, value = fields[0], fields[2], fields[5], fields[6]
 
-        @hosts                        << f_host
-        @host_paths[f_host]           ||= {}
-        @host_paths[f_host][f_path]   ||= []
-        @host_paths[f_host][f_path]   << "#{key}=#{value}"
+        add_cookie(f_host, f_path, key, value)
       end
     end
   end
 
   def get host, path
-    cookies = []
+    cookies = {}
 
     matching_hosts = @hosts.find_all do |h|
       host.match /^.*#{Regexp.escape(h)}$/
     end
 
     matching_hosts.each do |h|
-      @host_paths[h].each do |k,v|
-        cookies += v if path.match /^#{Regexp.escape(k)}/
+      @host_paths[h].each do |pth,cks|
+        if path.match /^#{Regexp.escape(pth)}/
+          cookies.merge! cks
+        end
       end
     end
 
-    cookies.empty? ? 'x' : cookies.join('; ')
+    if cookies.empty?
+      nil
+    else
+      cookies.map { |k,v| "#{k}=#{v}" }.join('; ')
+    end
+  end
+
+  def put req_host, path, cookie
+    crumbs = cookie.split(';').map { |p| p.strip.split('=', 2) }
+    key, value = crumbs.first
+    domain = req_host
+
+    crumbs[1..-1].each do |k,v|
+      if k == 'expires'
+        exp = Time.parse(v).to_i
+      elsif k == 'path'
+        path = v
+      elsif k == 'domain' and v[0].chr == '.'
+        # the domain they give us has to begin with a . so that we aren't
+        # tempted to count eu.example as a match for aoeu.example.
+
+        v.gsub!(/\.\.*/, '.') # remove consecutive .s
+
+        # count the number of .s that aren't at the end of the domain
+        num_dots = v.gsub(/\.$/, '').gsub(/[^\.]/, '').length
+
+        if num_dots > 1 and req_host.match /#{Regexp.escape(v)}$/
+          # the given domain is a suffix of our real domain and it has more
+          # than one . so they didn't try to use e.g. .com. Nothing looks
+          # funny here, let's use it (but strip the leading . first)!
+          domain = v[1..-1]
+        end
+      end
+    end
+
+    add_cookie domain, path, key, value
+    # XXX write out new cookies.txt
   end
 end
 
 COOKIES = CookieThingy.new COOKIES_TXT
 
 def handle_req data
-  cmd,rest = data.split(/ /, 2)
+  cmd,scheme,host,path,cookie = data.split "\0"
 
   if cmd == 'GET'
-    rest.match /'([^']*)' '([^']*)' '([^']*)'/
-    scheme, host, path          = $1, $2, $3
-
+    path ||= '/'
     COOKIES.get host, path
   elsif cmd == 'PUT'
-    rest.match /'([^']*)' '([^']*)' '([^']*)' '([^']*)'/
-    scheme, host, path, cookie  = $1, $2, $3, $4
+    COOKIES.put host, path, cookie
+    nil
   end
 end
 
 require 'socket'
 include Socket::Constants
 
+File.delete SOCKET_PATH if File.exist? SOCKET_PATH
+
 socket = Socket.new(AF_UNIX, SOCK_SEQPACKET, 0)
-sockaddr = Socket.pack_sockaddr_un("/tmp/uzbl-cookie-socket")
+sockaddr = Socket.pack_sockaddr_un(SOCKET_PATH)
 socket.bind(sockaddr)
 socket.listen(1)
 
@@ -88,7 +133,14 @@ loop do
         conns -= [c]
       else
         p data
-        c.write handle_req(data)
+        res = handle_req(data)
+
+        if res.nil?
+          c.close
+          conns -= [c]
+        else
+          c.write(res)
+        end
       end
     end
   end
@@ -123,9 +175,6 @@ SEND_THIRD_PARTY_COOKIES = false
 # - figure out how to handle cross-domain cookies and third party cookies in
 #   really big url spaces like .co.uk
 
-def get_cookies(cookie_file, host, path)
-end
-
 def put_cookie(cookie_file, domain, read_other, path, secure, exp, key, value)
   if File.exists? cookie_file
     cookies = File.readlines(cookie_file)
@@ -156,63 +205,5 @@ def put_cookie(cookie_file, domain, read_other, path, secure, exp, key, value)
       # it must be a new cookie, add it to the end of the file
       f.puts newcookie
     end
-  end
-end
-
-if $0 == __FILE__
-  require 'time'
-  require 'uri'
-
-  req_host = URI.parse(URI.escape(ARGV[5])).host
-  action = ARGV[7]
-  host = ARGV[9]
-  path = ARGV[10]
-  cookie = ARGV[11]
-
-=begin
-  unless SEND_THIRD_PARTY_COOKIES or
-    $stderr.puts req_host.inspect
-    $stderr.puts host.inspect
-    (req_host.split('.')[-2,2] == host.split('.')[-2,2])
-    File.open('/home/bct/cookies-debug.txt', 'a') do |f|
-      f.puts "exiting " + req_host.split('.')[-2,2].inspect + " " + host.split('.')[-2,2].inspect
-    end
-    exit
-  end
-=end
-
-  if action == 'PUT'
-    crumbs = cookie.split(';').map { |p| p.strip.split('=', 2) }
-    key,value = crumbs.first
-
-    exp = 'session'
-    domain = host
-
-    crumbs[1..-1].each do |k,v|
-      if k == 'expires'
-        exp = Time.parse(v).to_i
-      elsif k == 'path'
-        path = v
-      elsif k == 'domain' and v[0].chr == '.'
-        # the domain they give us has to begin with a . so that we aren't
-        # tempted to count eu.example as a match for aoeu.example.
-
-        v.gsub!(/\.\.*/, '.') # remove consecutive .s
-
-        # count the number of .s that aren't at the end of the domain
-        num_dots = v.gsub(/\.$/, '').gsub(/[^\.]/, '').length
-
-        if num_dots > 1 and host.match /#{Regexp.escape(v)}$/
-          # the given domain is a suffix of our real domain and it has more
-          # than one . so they didn't try to use e.g. .com. Nothing looks
-          # funny here, let's use it (but strip the leading . first)!
-          domain = v[1..-1]
-        end
-      end
-    end
-
-    put_cookie(COOKIES_TXT, domain, false, path, false, exp, key, value)
-  elsif action == 'GET'
-    puts get_cookies(COOKIES_TXT, host, path)
   end
 end
